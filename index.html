@@ -1,0 +1,1459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lead Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@400;600;700;800&display=swap');
+
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --surface2: #1a1a26;
+    --border: #252535;
+    --accent: #6ee7b7;
+    --accent2: #818cf8;
+    --danger: #f87171;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --card-glow: rgba(110, 231, 183, 0.04);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    min-height: 100vh;
+    padding: 0;
+  }
+
+  /* HEADER */
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 24px 40px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--surface);
+  }
+
+  .logo {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 22px;
+    letter-spacing: -0.5px;
+    color: var(--text);
+  }
+
+  .logo span { color: var(--accent); }
+
+  .logo-byline {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    font-weight: 300;
+    color: #ffffff;
+    opacity: 0.55;
+    margin-top: 3px;
+    letter-spacing: 0.2px;
+  }
+
+  .logo-byline a {
+    color: #ffffff;
+    opacity: 0.55;
+    text-decoration: none;
+    transition: opacity 0.15s;
+  }
+
+  .logo-byline a:hover { opacity: 1; text-decoration: underline; }
+
+  .header-right {
+    display: flex;
+    align-items: flex-end;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .header-right-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .last-synced {
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  /* LICENSE BADGE */
+  .license-badge {
+    font-size: 10px;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    padding: 3px 9px;
+    border-radius: 4px;
+    cursor: pointer;
+    border: 1px solid;
+    transition: all 0.15s;
+    font-family: 'DM Mono', monospace;
+  }
+
+  .license-badge.free {
+    color: #fb923c;
+    border-color: rgba(251,146,60,0.35);
+    background: rgba(251,146,60,0.07);
+  }
+
+  .license-badge.free:hover {
+    border-color: #fb923c;
+    background: rgba(251,146,60,0.14);
+  }
+
+  .license-badge.unlimited {
+    color: var(--accent);
+    border-color: rgba(110,231,183,0.35);
+    background: rgba(110,231,183,0.07);
+    cursor: default;
+  }
+
+  .sessions-left {
+    font-size: 10px;
+    color: #fb923c;
+    opacity: 0.8;
+  }
+
+  .btn {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    padding: 8px 16px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: all 0.15s;
+    background: transparent;
+    color: var(--text);
+    letter-spacing: 0.3px;
+  }
+
+  .btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  .btn-primary {
+    background: var(--accent);
+    color: #0a0a0f;
+    border-color: var(--accent);
+    font-weight: 500;
+  }
+
+  .btn-primary:hover { background: #5ad4a3; border-color: #5ad4a3; color: #0a0a0f; }
+
+  .btn-danger { border-color: transparent; color: var(--danger); font-size: 11px; padding: 4px 8px; }
+  .btn-danger:hover { border-color: var(--danger); }
+
+  /* MAIN LAYOUT */
+  main { display: flex; min-height: calc(100vh - 73px); }
+
+  /* SIDEBAR */
+  aside {
+    width: 320px;
+    min-width: 320px;
+    border-right: 1px solid var(--border);
+    background: var(--surface);
+    padding: 28px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+  }
+
+  .section-label {
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 12px;
+  }
+
+  /* DATE RANGE */
+  .date-group { display: flex; flex-direction: column; gap: 8px; }
+
+  .date-group label { font-size: 11px; color: var(--muted); }
+
+  input[type="date"], input[type="text"], select {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    padding: 9px 12px;
+    border-radius: 6px;
+    width: 100%;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+
+  input[type="date"]:focus, input[type="text"]:focus, select:focus {
+    border-color: var(--accent);
+  }
+
+  input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(0.5);
+    cursor: pointer;
+  }
+
+  .quick-ranges {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: 4px;
+  }
+
+  .quick-btn {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    padding: 4px 10px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.12s;
+    letter-spacing: 0.3px;
+  }
+
+  .quick-btn:hover, .quick-btn.active {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  /* SHEETS LIST */
+  .sheets-list { display: flex; flex-direction: column; gap: 10px; }
+
+  .sheet-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    transition: border-color 0.15s;
+    position: relative;
+  }
+
+  .sheet-card:hover { border-color: #303050; }
+
+  .sheet-card.loading { border-color: var(--accent2); opacity: 0.7; }
+  .sheet-card.error { border-color: var(--danger); }
+  .sheet-card.success { border-color: #1a3a2e; }
+
+  .sheet-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 6px;
+  }
+
+  .sheet-name-input {
+    background: transparent;
+    border: none;
+    border-bottom: 1px dashed var(--border);
+    border-radius: 0;
+    padding: 2px 0;
+    font-size: 13px;
+    color: var(--text);
+    font-weight: 500;
+    width: calc(100% - 60px);
+  }
+
+  .sheet-name-input:focus { border-bottom-color: var(--accent); outline: none; }
+
+  .sheet-meta {
+    font-size: 10px;
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 8px;
+  }
+
+  .sheet-col-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .col-label { font-size: 10px; color: var(--muted); white-space: nowrap; }
+
+  .col-input {
+    width: 52px;
+    min-width: unset;
+    text-align: center;
+    padding: 4px 6px;
+    font-size: 11px;
+  }
+
+  .sheet-status {
+    font-size: 10px;
+    margin-top: 6px;
+    color: var(--muted);
+  }
+
+  .sheet-status.ok { color: var(--accent); }
+  .sheet-status.err { color: var(--danger); }
+
+  /* ADD SHEET FORM */
+  .add-sheet-area { display: flex; flex-direction: column; gap: 8px; }
+
+  .url-input-wrap { position: relative; }
+
+  .url-input-wrap input {
+    padding-right: 36px;
+    font-size: 11px;
+  }
+
+  .paste-hint { font-size: 10px; color: var(--muted); line-height: 1.5; }
+
+  /* CONTENT */
+  .content {
+    flex: 1;
+    padding: 36px 40px;
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+    overflow-y: auto;
+  }
+
+  /* STAT CARDS */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+  }
+
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 24px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.15s;
+  }
+
+  .stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--accent);
+    opacity: 0.6;
+  }
+
+  .stat-card:nth-child(2)::before { background: var(--accent2); }
+  .stat-card:nth-child(3)::before { background: #fb923c; }
+  .stat-card:nth-child(4)::before { background: #f472b6; }
+
+  .stat-label {
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 12px;
+  }
+
+  .stat-value {
+    font-family: 'Syne', sans-serif;
+    font-size: 42px;
+    font-weight: 800;
+    color: var(--text);
+    line-height: 1;
+    letter-spacing: -1px;
+  }
+
+  .stat-sub {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 8px;
+  }
+
+  /* CHART */
+  .chart-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 24px;
+  }
+
+  .chart-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+  }
+
+  .chart-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+  }
+
+  .chart-wrap { height: 220px; position: relative; }
+
+  /* BREAKDOWN TABLE */
+  .breakdown-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 24px;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  thead th {
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    text-align: left;
+    padding: 0 0 12px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  tbody tr {
+    border-bottom: 1px solid #16161f;
+    transition: background 0.1s;
+  }
+
+  tbody tr:hover { background: var(--surface2); }
+  tbody tr:last-child { border-bottom: none; }
+
+  tbody td {
+    padding: 14px 0;
+    vertical-align: middle;
+  }
+
+  .sheet-dot {
+    display: inline-block;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    margin-right: 10px;
+    flex-shrink: 0;
+  }
+
+  .td-name { display: flex; align-items: center; }
+
+  .lead-bar-wrap {
+    height: 4px;
+    background: var(--surface2);
+    border-radius: 2px;
+    margin-top: 4px;
+    width: 100%;
+  }
+
+  .lead-bar {
+    height: 4px;
+    border-radius: 2px;
+    transition: width 0.4s ease;
+  }
+
+  .td-count {
+    font-family: 'Syne', sans-serif;
+    font-size: 22px;
+    font-weight: 700;
+    text-align: right;
+    padding-right: 20px;
+  }
+
+  .td-pct {
+    color: var(--muted);
+    font-size: 12px;
+    text-align: right;
+  }
+
+  /* EMPTY STATE */
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 80px 0;
+    color: var(--muted);
+    text-align: center;
+  }
+
+  .empty-icon { font-size: 48px; opacity: 0.4; }
+  .empty-title { font-family: 'Syne', sans-serif; font-size: 18px; color: var(--text); opacity: 0.5; }
+  .empty-sub { font-size: 12px; line-height: 1.6; max-width: 320px; }
+
+  /* MODAL */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    backdrop-filter: blur(4px);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .modal-overlay.open { display: flex; }
+
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 32px;
+    width: 480px;
+    max-width: 95vw;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .modal h2 {
+    font-family: 'Syne', sans-serif;
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+
+  .modal-sub { font-size: 12px; color: var(--muted); line-height: 1.6; }
+
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field label { font-size: 11px; color: var(--muted); }
+
+  .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 8px; }
+
+  /* SPINNER */
+  .spinner {
+    display: inline-block;
+    width: 10px; height: 10px;
+    border: 1.5px solid var(--muted);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    margin-right: 6px;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .refresh-btn {
+    font-size: 12px;
+    color: var(--muted);
+    background: none;
+    border: 1px solid var(--border);
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: 'DM Mono', monospace;
+    transition: all 0.15s;
+  }
+
+  .refresh-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  .error-msg {
+    font-size: 11px;
+    color: var(--danger);
+    background: rgba(248,113,113,0.08);
+    border: 1px solid rgba(248,113,113,0.2);
+    border-radius: 6px;
+    padding: 10px 12px;
+    line-height: 1.5;
+  }
+
+  /* HELP TIP */
+  .tip {
+    background: rgba(110,231,183,0.05);
+    border: 1px solid rgba(110,231,183,0.15);
+    border-radius: 6px;
+    padding: 10px 12px;
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+
+  .tip strong { color: var(--accent); }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="logo">lead<span>pulse</span></div>
+    <div class="logo-byline">by <a href="/cdn-cgi/l/email-protection#accdc8cdc1ecd8c9c2d8c1cdc7c9dedfd8decdd8c9cbc5c9df82cfc3c193dfd9cec6c9cfd891c0c9cdc8dcd9c0dfc9">Tentmaker Strategies</a></div>
+  </div>
+  <div class="header-right">
+    <div class="header-right-row">
+      <span class="last-synced" id="lastSynced">—</span>
+      <button class="refresh-btn" onclick="refreshAll(false)">↻ Refresh</button>
+    </div>
+    <div class="header-right-row">
+      <span class="sessions-left" id="sessionsLeft"></span>
+      <span class="license-badge free" id="licenseBadge" onclick="openLicenseModal()">free version</span>
+    </div>
+    <div class="header-right-row" id="googleAuthRow">
+      <span id="googleUserInfo" style="font-size:11px;color:var(--muted);"></span>
+      <button id="googleSignInBtn" class="btn" style="font-size:11px;padding:5px 12px;border-color:var(--accent);color:var(--accent);" onclick="handleSignIn()">⟳ Connect Google Account</button>
+      <button id="googleSignOutBtn" class="btn btn-danger" style="display:none;font-size:11px;padding:5px 12px;" onclick="handleSignOut()">Disconnect</button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <!-- SIDEBAR -->
+  <aside>
+    <!-- DATE RANGE -->
+    <div>
+      <div class="section-label">Date Range</div>
+      <div class="date-group">
+        <label>From</label>
+        <input type="date" id="dateFrom">
+        <label>To</label>
+        <input type="date" id="dateTo">
+      </div>
+      <div class="quick-ranges" style="margin-top:10px;">
+        <button class="quick-btn" onclick="setRange(1)">1d</button>
+        <button class="quick-btn" onclick="setRange(7)">7d</button>
+        <button class="quick-btn active" onclick="setRange(30)">30d</button>
+        <button class="quick-btn" onclick="setRange(90)">90d</button>
+        <button class="quick-btn" onclick="setRangeMTD()">MTD</button>
+        <button class="quick-btn" onclick="setRangeYTD()">YTD</button>
+      </div>
+      <button class="btn btn-primary" style="width:100%;margin-top:12px;" onclick="refreshAll(false)">Apply & Refresh</button>
+    </div>
+
+    <!-- SHEETS -->
+    <div>
+      <div class="section-label">Spreadsheets</div>
+      <div class="sheets-list" id="sheetsList">
+        <div style="font-size:11px;color:var(--muted);">No sheets added yet.</div>
+      </div>
+      <button class="btn" style="width:100%;margin-top:12px;" onclick="openModal()">+ Add Spreadsheet</button>
+    </div>
+  </aside>
+
+  <!-- MAIN CONTENT -->
+  <div class="content" id="mainContent">
+    <div class="empty-state">
+      <div class="empty-icon">📊</div>
+      <div class="empty-title">No data yet</div>
+      <div class="empty-sub">Add a Google Spreadsheet using the sidebar. Make sure it's shared with "Anyone with the link can view."</div>
+    </div>
+  </div>
+</main>
+
+<!-- LICENSE ENTRY MODAL -->
+<div class="modal-overlay" id="licenseModalOverlay">
+  <div class="modal">
+    <div>
+      <h2>Enter License Code</h2>
+      <p class="modal-sub">Enter your code below to unlock the unlimited version of LeadPulse.</p>
+    </div>
+    <div class="field">
+      <label>License Code</label>
+      <input type="text" id="licenseCodeInput" placeholder="" autocomplete="off" />
+    </div>
+    <div id="licenseError" class="error-msg" style="display:none;">Invalid code. Please check and try again.</div>
+    <div class="tip" style="margin-top:4px;">
+      Don't have a code? <a href="/cdn-cgi/l/email-protection#a9c8cdc8c4e9ddccc7ddc4c8c2ccdbdadddbc8ddcccec0ccda87cac6c496dadccbc3cccadd94cac6cdcc8c9b99dbccd8dcccdadd8c9b99cfc6db8c9b99c5ccc8cdd9dcc5dacc" style="color:var(--accent);text-decoration:none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">Request an unlimited license →</a>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeLicenseModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="submitLicenseCode()">Unlock</button>
+    </div>
+  </div>
+</div>
+
+<!-- PAYWALL MODAL (shown after 10 refreshes) -->
+<div class="modal-overlay" id="paywallModalOverlay">
+  <div class="modal">
+    <div>
+      <h2>You've used your 10 free sessions</h2>
+      <p class="modal-sub">Thanks for trying LeadPulse! Enter a license code to continue with unlimited access — or request one below.</p>
+    </div>
+    <div class="field">
+      <label>License Code</label>
+      <input type="text" id="paywallCodeInput" placeholder="Enter your code…" autocomplete="off" />
+    </div>
+    <div id="paywallError" class="error-msg" style="display:none;">Invalid code. Please check and try again.</div>
+    <div class="tip">
+      Need a code? <a href="/cdn-cgi/l/email-protection#cfaeabaea28fbbaaa1bba2aea4aabdbcbbbdaebbaaa8a6aabce1aca0a2f0bcbaada5aaacbbf2aca0abaaeafdffbdaabebaaabcbbeafdffa9a0bdeafdffa3aaaeabbfbaa3bcaa" style="color:var(--accent);text-decoration:none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">Request an unlimited license from Tentmaker Strategies →</a>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" onclick="submitPaywallCode()">Unlock Unlimited</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD SHEET MODAL -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <div>
+      <h2>Add Spreadsheet</h2>
+      <p class="modal-sub">Paste the shareable link from Google Sheets. The sheet must be set to "Anyone with the link can view."</p>
+    </div>
+
+    <div class="tip">
+      <strong>How to share:</strong> In Google Sheets → Share → Change to "Anyone with the link" → Viewer → Copy link.
+    </div>
+
+    <div class="field">
+      <label>Google Sheets URL</label>
+      <input type="text" id="modalUrl" placeholder="https://docs.google.com/spreadsheets/d/..." />
+      <span style="font-size:10px;color:var(--muted);line-height:1.6;margin-top:4px;display:block;">The sheet must be owned by you or shared directly with your Google account. If the sheet belongs to another account, have its owner share it with your email first.</span>
+    </div>
+    <div class="field">
+      <label>Custom Name (optional — will auto-detect from sheet)</label>
+      <input type="text" id="modalName" placeholder="e.g. Facebook Leads Q1" />
+    </div>
+    <div class="field">
+      <label>Date Column Letter (default: A)</label>
+      <input type="text" id="modalCol" placeholder="A" maxlength="3" style="width:80px;" />
+    </div>
+    <div class="field">
+      <label>Tab / Sheet Name (optional — leave blank for first sheet)</label>
+      <input type="text" id="modalTab" placeholder="Sheet1" />
+    </div>
+
+    <div id="modalError" class="error-msg" style="display:none;"></div>
+
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="addSheet()">Add Sheet</button>
+    </div>
+  </div>
+</div>
+
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
+// ─── GOOGLE AUTH ──────────────────────────────────────────
+const GOOGLE_CLIENT_ID = '712692419596-civ4s29qf0eneoc6e4o076uj47jqfcil.apps.googleusercontent.com';
+const GOOGLE_SCOPES = 'https://www.googleapis.com/auth/spreadsheets.readonly';
+
+let tokenClient = null;
+let accessToken = null;
+let tokenExpiry = 0;
+
+function getAccessToken() {
+  // Check in-memory first, then localStorage
+  if (accessToken && Date.now() < tokenExpiry) return accessToken;
+  const stored = localStorage.getItem('lp_gtoken');
+  const storedExpiry = parseInt(localStorage.getItem('lp_gtoken_expiry') || '0');
+  if (stored && Date.now() < storedExpiry) {
+    accessToken = stored;
+    tokenExpiry = storedExpiry;
+    return accessToken;
+  }
+  return null;
+}
+
+function setAccessToken(token, expiresIn) {
+  accessToken = token;
+  tokenExpiry = Date.now() + (expiresIn * 1000) - 60000; // 1 min buffer
+  localStorage.setItem('lp_gtoken', token);
+  localStorage.setItem('lp_gtoken_expiry', String(tokenExpiry));
+}
+
+function clearAccessToken() {
+  accessToken = null;
+  tokenExpiry = 0;
+  localStorage.removeItem('lp_gtoken');
+  localStorage.removeItem('lp_gtoken_expiry');
+  localStorage.removeItem('lp_guser');
+}
+
+function handleSignIn() {
+  if (!tokenClient) {
+    tokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: GOOGLE_CLIENT_ID,
+      scope: GOOGLE_SCOPES,
+      callback: (response) => {
+        if (response.error) {
+          console.error('OAuth error:', response.error);
+          return;
+        }
+        setAccessToken(response.access_token, response.expires_in);
+        // Fetch user info to display name/email
+        fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+          headers: { Authorization: `Bearer ${response.access_token}` }
+        })
+        .then(r => r.json())
+        .then(info => {
+          const label = info.email || info.name || 'Connected';
+          localStorage.setItem('lp_guser', label);
+          updateGoogleAuthUI();
+          // Auto-refresh if sheets already added
+          if (sheets.length > 0) refreshAll(true);
+        })
+        .catch(() => {
+          updateGoogleAuthUI();
+          if (sheets.length > 0) refreshAll(true);
+        });
+      }
+    });
+  }
+  tokenClient.requestAccessToken();
+}
+
+function handleSignOut() {
+  const token = getAccessToken();
+  if (token) google.accounts.oauth2.revoke(token, () => {});
+  clearAccessToken();
+  updateGoogleAuthUI();
+}
+
+function updateGoogleAuthUI() {
+  const signInBtn = document.getElementById('googleSignInBtn');
+  const signOutBtn = document.getElementById('googleSignOutBtn');
+  const userInfo = document.getElementById('googleUserInfo');
+  const token = getAccessToken();
+  const user = localStorage.getItem('lp_guser');
+
+  if (token) {
+    signInBtn.style.display = 'none';
+    signOutBtn.style.display = 'inline-block';
+    userInfo.textContent = user ? `● ${user}` : '● Connected';
+    userInfo.style.color = 'var(--accent)';
+  } else {
+    signInBtn.style.display = 'inline-block';
+    signOutBtn.style.display = 'none';
+    userInfo.textContent = 'Not connected';
+    userInfo.style.color = 'var(--muted)';
+  }
+}
+
+// ─── STATE ────────────────────────────────────────────────
+let sheets = JSON.parse(localStorage.getItem('lp_sheets') || '[]');
+let chartInstance = null;
+const COLORS = ['#6ee7b7','#818cf8','#fb923c','#f472b6','#38bdf8','#facc15','#a78bfa','#34d399'];
+
+const FREE_LIMIT = 10;
+const UNLOCK_CODE = 'tentmaker';
+
+// ─── LICENSE HELPERS ───────────────────────────────────────
+function isUnlocked() {
+  return localStorage.getItem('lp_unlocked') === 'true';
+}
+
+function getSessionsUsed() {
+  return parseInt(localStorage.getItem('lp_sessions') || '0', 10);
+}
+
+function incrementSession() {
+  const used = getSessionsUsed() + 1;
+  localStorage.setItem('lp_sessions', String(used));
+  return used;
+}
+
+function sessionsRemaining() {
+  return Math.max(0, FREE_LIMIT - getSessionsUsed());
+}
+
+function unlockApp() {
+  localStorage.setItem('lp_unlocked', 'true');
+  updateLicenseBadge();
+}
+
+function updateLicenseBadge() {
+  const badge = document.getElementById('licenseBadge');
+  const sessEl = document.getElementById('sessionsLeft');
+  if (isUnlocked()) {
+    badge.textContent = 'unlimited version';
+    badge.className = 'license-badge unlimited';
+    badge.onclick = null;
+    badge.style.cursor = 'default';
+    sessEl.textContent = '';
+  } else {
+    const rem = sessionsRemaining();
+    badge.textContent = 'free version';
+    badge.className = 'license-badge free';
+    badge.onclick = openLicenseModal;
+    sessEl.textContent = rem > 0 ? `${rem} session${rem !== 1 ? 's' : ''} left` : '0 sessions left';
+  }
+}
+
+function openLicenseModal() {
+  document.getElementById('licenseCodeInput').value = '';
+  document.getElementById('licenseError').style.display = 'none';
+  document.getElementById('licenseModalOverlay').classList.add('open');
+  setTimeout(() => document.getElementById('licenseCodeInput').focus(), 100);
+}
+
+function closeLicenseModal() {
+  document.getElementById('licenseModalOverlay').classList.remove('open');
+}
+
+function submitLicenseCode() {
+  const code = document.getElementById('licenseCodeInput').value.trim().toLowerCase();
+  if (code === UNLOCK_CODE) {
+    unlockApp();
+    closeLicenseModal();
+  } else {
+    document.getElementById('licenseError').style.display = 'block';
+  }
+}
+
+function openPaywallModal() {
+  document.getElementById('paywallCodeInput').value = '';
+  document.getElementById('paywallError').style.display = 'none';
+  document.getElementById('paywallModalOverlay').classList.add('open');
+  setTimeout(() => document.getElementById('paywallCodeInput').focus(), 100);
+}
+
+function submitPaywallCode() {
+  const code = document.getElementById('paywallCodeInput').value.trim().toLowerCase();
+  if (code === UNLOCK_CODE) {
+    unlockApp();
+    document.getElementById('paywallModalOverlay').classList.remove('open');
+    refreshAll(true);
+  } else {
+    document.getElementById('paywallError').style.display = 'block';
+  }
+}
+
+// Allow enter key in license inputs
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('licenseCodeInput').addEventListener('keydown', e => { if (e.key === 'Enter') submitLicenseCode(); });
+  document.getElementById('paywallCodeInput').addEventListener('keydown', e => { if (e.key === 'Enter') submitPaywallCode(); });
+  document.getElementById('licenseModalOverlay').addEventListener('click', function(e) { if (e.target === this) closeLicenseModal(); });
+});
+
+// ─── INIT ─────────────────────────────────────────────────
+(function init() {
+  setRange(30, false);
+  updateLicenseBadge();
+  updateGoogleAuthUI();
+  renderSidebar();
+  // Only auto-refresh if already connected
+  if (sheets.length > 0 && getAccessToken()) refreshAll(true);
+})();
+
+// ─── DATE HELPERS ─────────────────────────────────────────
+function todayStr() {
+  return new Date().toISOString().split('T')[0];
+}
+
+function dateNDaysAgo(n) {
+  const d = new Date();
+  d.setDate(d.getDate() - n);
+  return d.toISOString().split('T')[0];
+}
+
+function setRange(days, refresh=true) {
+  document.getElementById('dateFrom').value = dateNDaysAgo(days);
+  document.getElementById('dateTo').value = todayStr();
+  document.querySelectorAll('.quick-btn').forEach(b => b.classList.remove('active'));
+  event && event.target && event.target.classList.add('active');
+  if (refresh && sheets.length > 0) refreshAll(true);
+}
+
+function setRangeMTD(refresh=true) {
+  const now = new Date();
+  document.getElementById('dateFrom').value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`;
+  document.getElementById('dateTo').value = todayStr();
+  document.querySelectorAll('.quick-btn').forEach(b => b.classList.remove('active'));
+  if (refresh && sheets.length > 0) refreshAll(true);
+}
+
+function setRangeYTD(refresh=true) {
+  const now = new Date();
+  document.getElementById('dateFrom').value = `${now.getFullYear()}-01-01`;
+  document.getElementById('dateTo').value = todayStr();
+  document.querySelectorAll('.quick-btn').forEach(b => b.classList.remove('active'));
+  if (refresh && sheets.length > 0) refreshAll(true);
+}
+
+// ─── GOOGLE SHEETS → CSV URL ───────────────────────────────
+function sheetToCsvUrl(url, tabName) {
+  const match = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
+  if (!match) return null;
+  const id = match[1];
+  const gidMatch = url.match(/[#&?]gid=(\d+)/);
+  const gid = gidMatch ? gidMatch[1] : '0';
+  // /pub?output=csv is the correct public endpoint — no auth required
+  let csvUrl = `https://docs.google.com/spreadsheets/d/${id}/pub?output=csv&gid=${gid}`;
+  if (tabName) csvUrl += `&sheet=${encodeURIComponent(tabName)}`;
+  return csvUrl;
+}
+
+// ─── PARSE CSV ─────────────────────────────────────────────
+function parseCSV(text) {
+  const lines = text.split('\n').filter(l => l.trim());
+  if (lines.length < 2) return [];
+  const rows = lines.map(line => {
+    const cells = [];
+    let current = '';
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      if (line[i] === '"') {
+        inQuotes = !inQuotes;
+      } else if (line[i] === ',' && !inQuotes) {
+        cells.push(current.trim());
+        current = '';
+      } else {
+        current += line[i];
+      }
+    }
+    cells.push(current.trim());
+    return cells;
+  });
+  return rows;
+}
+
+function colLetterToIndex(letter) {
+  letter = (letter || 'A').toUpperCase().trim();
+  let index = 0;
+  for (let i = 0; i < letter.length; i++) {
+    index = index * 26 + (letter.charCodeAt(i) - 64);
+  }
+  return index - 1;
+}
+
+function parseDate(str) {
+  if (!str) return null;
+  str = str.trim().replace(/["']/g, '');
+  let d;
+  if (/^\d{4}-\d{2}-\d{2}/.test(str)) {
+    d = new Date(str);
+  } else if (/^\d{1,2}\/\d{1,2}\/\d{4}/.test(str)) {
+    const parts = str.split('/');
+    d = new Date(`${parts[2]}-${parts[0].padStart(2,'0')}-${parts[1].padStart(2,'0')}`);
+  } else if (/^\d{1,2}-\d{1,2}-\d{4}/.test(str)) {
+    const parts = str.split('-');
+    d = new Date(`${parts[2]}-${parts[0].padStart(2,'0')}-${parts[1].padStart(2,'0')}`);
+  } else {
+    d = new Date(str);
+  }
+  if (isNaN(d.getTime())) return null;
+  return d.toISOString().split('T')[0];
+}
+
+// ─── FETCH SHEET DATA ──────────────────────────────────────
+async function fetchSheetData(sheet) {
+  const match = sheet.url.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
+  if (!match) throw new Error('Invalid Google Sheets URL');
+  const sheetId = match[1];
+
+  // Build range — if tab specified use it, otherwise fetch all columns
+  const range = sheet.tab ? `${encodeURIComponent(sheet.tab)}!A:Z` : 'A:Z';
+  const apiUrl = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${range}`;
+
+  const token = getAccessToken();
+  if (!token) throw new Error('Not connected to Google. Click "Connect Google Account" in the header.');
+
+  const response = await fetch(apiUrl, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+
+  if (response.status === 401) {
+    clearAccessToken();
+    updateGoogleAuthUI();
+    throw new Error('Google session expired. Please reconnect your Google account.');
+  }
+  if (response.status === 403) {
+    throw new Error('Access denied. Make sure this sheet is shared with your Google account or set to "Anyone with the link can view."');
+  }
+  if (response.status === 404) {
+    throw new Error('Sheet not found. Check the URL is correct.');
+  }
+  if (!response.ok) {
+    throw new Error(`Google API error (HTTP ${response.status})`);
+  }
+
+  const json = await response.json();
+  const values = json.values;
+  if (!values || values.length < 2) return [];
+  return values;
+}
+
+function countLeadsInRange(rows, colIndex, fromDate, toDate) {
+  let count = 0;
+  const daily = {};
+  for (let i = 1; i < rows.length; i++) {
+    const row = rows[i];
+    if (!row || !row[colIndex]) continue;
+    const d = parseDate(row[colIndex]);
+    if (!d) continue;
+    if (d >= fromDate && d <= toDate) {
+      count++;
+      daily[d] = (daily[d] || 0) + 1;
+    }
+  }
+  return { count, daily };
+}
+
+// ─── SAVE STATE ────────────────────────────────────────────
+function saveSheets() {
+  localStorage.setItem('lp_sheets', JSON.stringify(sheets));
+}
+
+// ─── SIDEBAR RENDER ────────────────────────────────────────
+function renderSidebar() {
+  const list = document.getElementById('sheetsList');
+  if (sheets.length === 0) {
+    list.innerHTML = '<div style="font-size:11px;color:var(--muted);">No sheets added yet.</div>';
+    return;
+  }
+  list.innerHTML = sheets.map((s, i) => `
+    <div class="sheet-card ${s.status || ''}" id="card-${i}">
+      <div class="sheet-card-header">
+        <input class="sheet-name-input" value="${escHtml(s.name)}" onchange="renameSheet(${i}, this.value)" title="Click to rename" />
+        <button class="btn-danger btn" onclick="removeSheet(${i})">✕</button>
+      </div>
+      <div class="sheet-meta" title="${escHtml(s.url)}">${escHtml(shortUrl(s.url))}</div>
+      <div class="sheet-col-row">
+        <span class="col-label">Date col:</span>
+        <input class="col-input" type="text" maxlength="3" value="${escHtml(s.dateCol || 'A')}" onchange="updateCol(${i}, this.value)" />
+        ${s.tab ? `<span class="col-label" style="margin-left:8px;">Tab: ${escHtml(s.tab)}</span>` : ''}
+      </div>
+      <div class="sheet-status ${s.status === 'success' ? 'ok' : s.status === 'error' ? 'err' : ''}" id="status-${i}">
+        ${s.statusMsg || '—'}
+      </div>
+    </div>
+  `).join('');
+}
+
+function escHtml(str) {
+  return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function shortUrl(url) {
+  try {
+    const match = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]{6,})/);
+    return match ? `…${match[1].slice(0,12)}…` : url.slice(0,40);
+  } catch { return url.slice(0,40); }
+}
+
+function renameSheet(i, name) {
+  sheets[i].name = name;
+  saveSheets();
+}
+
+function updateCol(i, col) {
+  sheets[i].dateCol = col || 'A';
+  saveSheets();
+}
+
+function removeSheet(i) {
+  sheets.splice(i, 1);
+  saveSheets();
+  renderSidebar();
+  renderDashboard([]);
+  if (sheets.length > 0) refreshAll(true);
+  else showEmpty();
+}
+
+// ─── MODAL ─────────────────────────────────────────────────
+function openModal() {
+  document.getElementById('modalUrl').value = '';
+  document.getElementById('modalName').value = '';
+  document.getElementById('modalCol').value = '';
+  document.getElementById('modalTab').value = '';
+  document.getElementById('modalError').style.display = 'none';
+  document.getElementById('modalOverlay').classList.add('open');
+  setTimeout(() => document.getElementById('modalUrl').focus(), 100);
+}
+
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('open');
+}
+
+document.getElementById('modalOverlay').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+
+async function addSheet() {
+  const url = document.getElementById('modalUrl').value.trim();
+  const name = document.getElementById('modalName').value.trim();
+  const col = document.getElementById('modalCol').value.trim() || 'A';
+  const tab = document.getElementById('modalTab').value.trim();
+  const errEl = document.getElementById('modalError');
+
+  if (!url) { showModalError('Please paste a Google Sheets URL.'); return; }
+  if (!url.includes('docs.google.com/spreadsheets')) { showModalError('That doesn\'t look like a Google Sheets URL.'); return; }
+
+  const addBtn = document.querySelector('#modalOverlay .modal-actions .btn-primary');
+  addBtn.disabled = true;
+  addBtn.innerHTML = '<span class="spinner"></span>Testing…';
+  errEl.style.display = 'none';
+
+  const sheet = {
+    url,
+    name: name || 'Loading…',
+    dateCol: col,
+    tab: tab || '',
+    status: 'loading',
+    statusMsg: 'Connecting…',
+    id: Date.now()
+  };
+  sheets.push(sheet);
+  saveSheets();
+  renderSidebar();
+
+  try {
+    const rows = await fetchSheetData(sheet);
+    if (!name) {
+      sheet.name = `Sheet ${sheets.length}`;
+    }
+    const total = rows.length > 1 ? rows.length - 1 : 0;
+    sheet.status = 'success';
+    sheet.statusMsg = `✓ ${total} total rows detected`;
+    saveSheets();
+    closeModal();
+    renderSidebar();
+    refreshAll(true);
+  } catch (e) {
+    sheet.status = 'error';
+    sheet.statusMsg = '✕ ' + e.message;
+    sheets.pop();
+    saveSheets();
+    renderSidebar();
+    showModalError(e.message);
+  } finally {
+    addBtn.disabled = false;
+    addBtn.textContent = 'Add Sheet';
+  }
+}
+
+function showModalError(msg) {
+  const el = document.getElementById('modalError');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+// ─── REFRESH ALL ───────────────────────────────────────────
+async function refreshAll(skipCount) {
+  const fromDate = document.getElementById('dateFrom').value;
+  const toDate = document.getElementById('dateTo').value;
+  if (!fromDate || !toDate) { alert('Please set a date range.'); return; }
+  if (sheets.length === 0) { showEmpty(); return; }
+
+  if (!skipCount && !isUnlocked()) {
+    const used = incrementSession();
+    updateLicenseBadge();
+    if (used > FREE_LIMIT) {
+      openPaywallModal();
+      return;
+    }
+  }
+
+  document.getElementById('lastSynced').textContent = 'Loading…';
+
+  const results = await Promise.all(sheets.map(async (sheet, i) => {
+    const card = document.getElementById(`card-${i}`);
+    const statusEl = document.getElementById(`status-${i}`);
+    if (card) card.className = 'sheet-card loading';
+    if (statusEl) statusEl.textContent = 'Fetching…';
+
+    try {
+      const rows = await fetchSheetData(sheet);
+      const colIdx = colLetterToIndex(sheet.dateCol || 'A');
+      const { count, daily } = countLeadsInRange(rows, colIdx, fromDate, toDate);
+
+      sheet.status = 'success';
+      sheet.statusMsg = `✓ ${count} leads in range`;
+      saveSheets();
+      if (card) card.className = 'sheet-card success';
+      if (statusEl) { statusEl.className = 'sheet-status ok'; statusEl.textContent = sheet.statusMsg; }
+      return { sheet, count, daily, error: null };
+    } catch (e) {
+      sheet.status = 'error';
+      sheet.statusMsg = '✕ ' + e.message;
+      saveSheets();
+      if (card) card.className = 'sheet-card error';
+      if (statusEl) { statusEl.className = 'sheet-status err'; statusEl.textContent = sheet.statusMsg; }
+      return { sheet, count: 0, daily: {}, error: e.message };
+    }
+  }));
+
+  document.getElementById('lastSynced').textContent = `Last synced: ${new Date().toLocaleTimeString()}`;
+  renderDashboard(results, fromDate, toDate);
+}
+
+// ─── DASHBOARD RENDER ──────────────────────────────────────
+function showEmpty() {
+  document.getElementById('mainContent').innerHTML = `
+    <div class="empty-state">
+      <div class="empty-icon">📊</div>
+      <div class="empty-title">No data yet</div>
+      <div class="empty-sub">Add a Google Spreadsheet using the sidebar. Make sure it's shared with "Anyone with the link can view."</div>
+    </div>`;
+}
+
+function renderDashboard(results, fromDate, toDate) {
+  if (!results.length) { showEmpty(); return; }
+
+  const totalLeads = results.reduce((s, r) => s + r.count, 0);
+  const activeSheets = results.filter(r => !r.error).length;
+  const errorSheets = results.filter(r => r.error).length;
+  const topSheet = results.reduce((a, b) => a.count > b.count ? a : b, results[0]);
+
+  const allDates = new Set();
+  results.forEach(r => Object.keys(r.daily || {}).forEach(d => allDates.add(d)));
+  const sortedDates = Array.from(allDates).sort();
+  const dailyTotals = sortedDates.map(d => results.reduce((s, r) => s + (r.daily[d] || 0), 0));
+
+  const msPerDay = 86400000;
+  const days = fromDate && toDate ? Math.round((new Date(toDate) - new Date(fromDate)) / msPerDay) + 1 : '—';
+  const avgPerDay = days && totalLeads ? (totalLeads / days).toFixed(1) : '—';
+
+  const content = document.getElementById('mainContent');
+  content.innerHTML = `
+    <!-- STATS -->
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-label">Total Leads</div>
+        <div class="stat-value">${totalLeads.toLocaleString()}</div>
+        <div class="stat-sub">${fromDate} → ${toDate}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Avg / Day</div>
+        <div class="stat-value">${avgPerDay}</div>
+        <div class="stat-sub">over ${days} day${days !== 1 ? 's' : ''}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Top Source</div>
+        <div class="stat-value" style="font-size:26px;letter-spacing:-0.5px;">${topSheet.count ? topSheet.sheet.name.slice(0,18) : '—'}</div>
+        <div class="stat-sub">${topSheet.count ? topSheet.count + ' leads' : 'no data'}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Active Sheets</div>
+        <div class="stat-value">${activeSheets}<span style="font-size:18px;color:var(--muted);">/${results.length}</span></div>
+        <div class="stat-sub">${errorSheets ? `${errorSheets} error${errorSheets > 1 ? 's' : ''}` : 'All connected'}</div>
+      </div>
+    </div>
+
+    <!-- CHART -->
+    <div class="chart-card">
+      <div class="chart-header">
+        <div class="chart-title">Daily Leads</div>
+        <span style="font-size:11px;color:var(--muted);">${sortedDates.length} days with submissions</span>
+      </div>
+      <div class="chart-wrap">
+        <canvas id="leadsChart"></canvas>
+      </div>
+    </div>
+
+    <!-- BREAKDOWN -->
+    <div class="breakdown-card">
+      <div class="chart-header">
+        <div class="chart-title">Breakdown by Source</div>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th style="width:40%">Source</th>
+            <th>Volume</th>
+            <th style="text-align:right;padding-right:20px;">Leads</th>
+            <th style="text-align:right;">Share</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${results.map((r, i) => {
+            const pct = totalLeads ? Math.round((r.count / totalLeads) * 100) : 0;
+            const color = COLORS[i % COLORS.length];
+            return `
+            <tr>
+              <td class="td-name">
+                <span class="sheet-dot" style="background:${color}"></span>
+                ${escHtml(r.sheet.name)}
+                ${r.error ? `<span style="margin-left:8px;font-size:10px;color:var(--danger);">⚠ error</span>` : ''}
+              </td>
+              <td style="padding-right:20px;min-width:140px;">
+                <div class="lead-bar-wrap">
+                  <div class="lead-bar" style="width:${pct}%;background:${color};"></div>
+                </div>
+              </td>
+              <td class="td-count" style="color:${color}">${r.count.toLocaleString()}</td>
+              <td class="td-pct">${pct}%</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>
+
+    ${errorSheets ? `
+    <div class="error-msg">
+      ⚠ ${errorSheets} sheet${errorSheets > 1 ? 's' : ''} failed to load. Check that they are shared publicly and the URL is correct.
+    </div>` : ''}
+  `;
+
+  const ctx = document.getElementById('leadsChart');
+  if (chartInstance) chartInstance.destroy();
+
+  const datasets = results.map((r, i) => ({
+    label: r.sheet.name,
+    data: sortedDates.map(d => r.daily[d] || 0),
+    backgroundColor: COLORS[i % COLORS.length] + 'cc',
+    borderColor: COLORS[i % COLORS.length],
+    borderWidth: 1.5,
+    borderRadius: 3,
+  }));
+
+  chartInstance = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: sortedDates.map(d => {
+        const date = new Date(d + 'T00:00:00');
+        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      }),
+      datasets: datasets.length === 1 ? [{
+        ...datasets[0],
+        backgroundColor: COLORS[0] + '99',
+      }] : datasets
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          display: results.length > 1,
+          labels: {
+            color: '#94a3b8',
+            font: { family: 'DM Mono', size: 11 },
+            boxWidth: 10, boxHeight: 10,
+            padding: 16,
+          }
+        },
+        tooltip: {
+          backgroundColor: '#1a1a26',
+          borderColor: '#252535',
+          borderWidth: 1,
+          titleColor: '#e2e8f0',
+          bodyColor: '#94a3b8',
+          titleFont: { family: 'Syne', size: 13 },
+          bodyFont: { family: 'DM Mono', size: 11 },
+          callbacks: {
+            footer: (items) => {
+              if (results.length > 1) {
+                const total = items.reduce((s, i) => s + i.parsed.y, 0);
+                return `Total: ${total}`;
+              }
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          stacked: results.length > 1,
+          grid: { color: '#1a1a26' },
+          ticks: { color: '#475569', font: { family: 'DM Mono', size: 10 }, maxRotation: 45 }
+        },
+        y: {
+          stacked: results.length > 1,
+          grid: { color: '#1a1a26' },
+          ticks: { color: '#475569', font: { family: 'DM Mono', size: 10 } },
+          beginAtZero: true,
+        }
+      }
+    }
+  });
+}
+</script>
+</body>
+</html>
