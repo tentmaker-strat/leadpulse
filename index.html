@@ -3,6 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
 <title>Lead Dashboard</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -731,6 +733,7 @@
 </div>
 
 <script>
+console.log('[LeadPulse] Version 2.3 loaded');
 // ─── GOOGLE AUTH ──────────────────────────────────────────
 const GOOGLE_CLIENT_ID = '712692419596-civ4s29qf0eneoc6e4o076uj47jqfcil.apps.googleusercontent.com';
 const GOOGLE_SCOPES = 'https://www.googleapis.com/auth/spreadsheets.readonly';
@@ -1036,7 +1039,8 @@ function parseDate(str) {
     d = new Date(str);
   }
   if (isNaN(d.getTime())) return null;
-  return d.toISOString().split('T')[0];
+  const result = d.toISOString().split('T')[0];
+  return result;
 }
 
 // ─── FETCH SHEET DATA ──────────────────────────────────────
@@ -1274,7 +1278,10 @@ async function refreshAll(skipCount) {
     try {
       const rows = await fetchSheetData(sheet);
       const colIdx = colLetterToIndex(sheet.dateCol || 'A');
+      console.log(`[LeadPulse] Sheet "${sheet.name}" — ${rows.length} rows, colIdx: ${colIdx}, dateCol: ${sheet.dateCol}`);
+      console.log('[LeadPulse] First data row:', rows[1]);
       const { count, daily } = countLeadsInRange(rows, colIdx, fromDate, toDate);
+      console.log(`[LeadPulse] Count result: ${count}`);
 
       sheet.status = 'success';
       sheet.statusMsg = `✓ ${count} leads in range`;
