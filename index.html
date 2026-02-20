@@ -730,7 +730,7 @@
   </div>
 </div>
 
-<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
+<script>
 // ─── GOOGLE AUTH ──────────────────────────────────────────
 const GOOGLE_CLIENT_ID = '712692419596-civ4s29qf0eneoc6e4o076uj47jqfcil.apps.googleusercontent.com';
 const GOOGLE_SCOPES = 'https://www.googleapis.com/auth/spreadsheets.readonly';
@@ -1021,6 +1021,8 @@ function colLetterToIndex(letter) {
 function parseDate(str) {
   if (!str) return null;
   str = str.trim().replace(/["']/g, '');
+  // Strip time portion if present (e.g. "2/13/2026 22:56:11" → "2/13/2026")
+  str = str.split(' ')[0];
   let d;
   if (/^\d{4}-\d{2}-\d{2}/.test(str)) {
     d = new Date(str);
@@ -1083,15 +1085,10 @@ async function fetchSheetData(sheet) {
     return padded;
   });
 
-  console.log('[LeadPulse] Raw API values (first 3 rows):', values.slice(0, 3));
-  console.log('[LeadPulse] Normalized rows (first 3):', normalized.slice(0, 3));
-  console.log('[LeadPulse] Total rows returned:', normalized.length);
   return normalized;
 }
 
 function countLeadsInRange(rows, colIndex, fromDate, toDate) {
-  console.log('[LeadPulse] countLeadsInRange called — colIndex:', colIndex, 'fromDate:', fromDate, 'toDate:', toDate, 'total rows:', rows.length);
-  console.log('[LeadPulse] Sample data rows:', rows.slice(1, 4));
   let count = 0;
   const daily = {};
   // Row 0 is the header — start from row 1
@@ -1102,7 +1099,6 @@ function countLeadsInRange(rows, colIndex, fromDate, toDate) {
     const cellValue = row[colIndex] !== undefined ? String(row[colIndex]).trim() : '';
     if (!cellValue) continue;
     const d = parseDate(cellValue);
-    console.log('[LeadPulse] Row', i, '| cell:', cellValue, '| parsed date:', d);
     if (!d) continue;
     if (d >= fromDate && d <= toDate) {
       count++;
