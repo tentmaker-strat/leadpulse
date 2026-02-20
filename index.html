@@ -581,6 +581,121 @@
   }
 
   .tip strong { color: var(--accent); }
+
+  /* GROUPS */
+  .group-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    position: relative;
+  }
+  .group-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 4px;
+  }
+  .group-name-input {
+    background: transparent;
+    border: none;
+    border-bottom: 1px dashed var(--border);
+    border-radius: 0;
+    padding: 2px 0;
+    font-size: 13px;
+    color: var(--text);
+    font-weight: 500;
+    width: calc(100% - 60px);
+  }
+  .group-name-input:focus { border-bottom-color: var(--accent); outline: none; }
+  .group-count {
+    font-size: 10px;
+    color: var(--accent);
+    margin-top: 2px;
+  }
+  .group-sheet-tag {
+    display: inline-block;
+    font-size: 9px;
+    padding: 2px 7px;
+    border-radius: 3px;
+    background: rgba(110,231,183,0.08);
+    border: 1px solid rgba(110,231,183,0.2);
+    color: var(--accent);
+    margin: 3px 3px 0 0;
+  }
+
+  /* GROUP SUMMARY CARDS in dashboard */
+  .groups-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+  }
+  .group-summary-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px 24px;
+    position: relative;
+    overflow: hidden;
+  }
+  .group-summary-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--accent2);
+    opacity: 0.7;
+  }
+  .group-summary-label {
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+  .group-summary-value {
+    font-family: 'Syne', sans-serif;
+    font-size: 36px;
+    font-weight: 800;
+    color: var(--text);
+    line-height: 1;
+    letter-spacing: -1px;
+  }
+  .group-summary-sub {
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 6px;
+  }
+  .group-summary-sheets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 10px;
+  }
+  .group-sheet-pill {
+    font-size: 9px;
+    padding: 2px 7px;
+    border-radius: 3px;
+    background: rgba(129,140,248,0.1);
+    border: 1px solid rgba(129,140,248,0.25);
+    color: var(--accent2);
+  }
+
+  /* GROUP ASSIGNMENT dropdown on sheet cards */
+  .group-assign-select {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    padding: 3px 6px;
+    border-radius: 4px;
+    width: 100%;
+    margin-top: 6px;
+    outline: none;
+    cursor: pointer;
+  }
+  .group-assign-select:focus { border-color: var(--accent2); }
 </style>
 </head>
 <body>
@@ -628,6 +743,15 @@
         <button class="quick-btn" onclick="setRangeYTD()">YTD</button>
       </div>
       <button class="btn btn-primary" style="width:100%;margin-top:12px;" onclick="refreshAll(false)">Apply & Refresh</button>
+    </div>
+
+    <!-- GROUPS -->
+    <div>
+      <div class="section-label">Groups</div>
+      <div class="sheets-list" id="groupsList">
+        <div style="font-size:11px;color:var(--muted);">No groups yet.</div>
+      </div>
+      <button class="btn" style="width:100%;margin-top:12px;" onclick="openGroupModal()">+ Create Group</button>
     </div>
 
     <!-- SHEETS -->
@@ -693,6 +817,29 @@
   </div>
 </div>
 
+<!-- CREATE GROUP MODAL -->
+<div class="modal-overlay" id="groupModalOverlay">
+  <div class="modal">
+    <div>
+      <h2>Create Group</h2>
+      <p class="modal-sub">Name your group and select which spreadsheets belong to it.</p>
+    </div>
+    <div class="field">
+      <label>Group Name</label>
+      <input type="text" id="groupModalName" placeholder="e.g. Facebook Campaigns" />
+    </div>
+    <div class="field">
+      <label>Assign Spreadsheets</label>
+      <div id="groupSheetCheckboxes" style="display:flex;flex-direction:column;gap:8px;margin-top:4px;max-height:180px;overflow-y:auto;"></div>
+    </div>
+    <div id="groupModalError" class="error-msg" style="display:none;"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeGroupModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveGroup()">Create Group</button>
+    </div>
+  </div>
+</div>
+
 <!-- ADD SHEET MODAL -->
 <div class="modal-overlay" id="modalOverlay">
   <div class="modal">
@@ -733,7 +880,6 @@
 </div>
 
 <script>
-console.log('[LeadPulse] Version 2.3 loaded');
 // ─── GOOGLE AUTH ──────────────────────────────────────────
 const GOOGLE_CLIENT_ID = '712692419596-civ4s29qf0eneoc6e4o076uj47jqfcil.apps.googleusercontent.com';
 const GOOGLE_SCOPES = 'https://www.googleapis.com/auth/spreadsheets.readonly';
@@ -836,6 +982,7 @@ function updateGoogleAuthUI() {
 
 // ─── STATE ────────────────────────────────────────────────
 let sheets = JSON.parse(localStorage.getItem('lp_sheets') || '[]');
+let groups = JSON.parse(localStorage.getItem('lp_groups') || '[]');
 let chartInstance = null;
 const COLORS = ['#6ee7b7','#818cf8','#fb923c','#f472b6','#38bdf8','#facc15','#a78bfa','#34d399'];
 
@@ -928,6 +1075,8 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('licenseCodeInput').addEventListener('keydown', e => { if (e.key === 'Enter') submitLicenseCode(); });
   document.getElementById('paywallCodeInput').addEventListener('keydown', e => { if (e.key === 'Enter') submitPaywallCode(); });
   document.getElementById('licenseModalOverlay').addEventListener('click', function(e) { if (e.target === this) closeLicenseModal(); });
+  document.getElementById('groupModalOverlay').addEventListener('click', function(e) { if (e.target === this) closeGroupModal(); });
+  document.getElementById('groupModalName').addEventListener('keydown', e => { if (e.key === 'Enter') saveGroup(); });
 });
 
 // ─── INIT ─────────────────────────────────────────────────
@@ -1117,14 +1266,43 @@ function saveSheets() {
   localStorage.setItem('lp_sheets', JSON.stringify(sheets));
 }
 
+function saveGroups() {
+  localStorage.setItem('lp_groups', JSON.stringify(groups));
+}
+
 // ─── SIDEBAR RENDER ────────────────────────────────────────
 function renderSidebar() {
+  // Render groups
+  const groupList = document.getElementById('groupsList');
+  if (groups.length === 0) {
+    groupList.innerHTML = '<div style="font-size:11px;color:var(--muted);">No groups yet.</div>';
+  } else {
+    groupList.innerHTML = groups.map((g, gi) => {
+      const memberSheets = sheets.filter(s => s.groupId === g.id);
+      return `
+      <div class="group-card">
+        <div class="group-card-header">
+          <input class="group-name-input" value="${escHtml(g.name)}" onchange="renameGroup(${gi}, this.value)" title="Click to rename" />
+          <button class="btn-danger btn" onclick="removeGroup(${gi})">✕</button>
+        </div>
+        <div class="group-count" id="group-count-${g.id}">— leads</div>
+        <div style="margin-top:6px;">
+          ${memberSheets.map(s => `<span class="group-sheet-tag">${escHtml(s.name)}</span>`).join('')}
+          ${memberSheets.length === 0 ? '<span style="font-size:10px;color:var(--muted);">No sheets assigned</span>' : ''}
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  // Render sheets
   const list = document.getElementById('sheetsList');
   if (sheets.length === 0) {
     list.innerHTML = '<div style="font-size:11px;color:var(--muted);">No sheets added yet.</div>';
     return;
   }
-  list.innerHTML = sheets.map((s, i) => `
+  list.innerHTML = sheets.map((s, i) => {
+    const assignedGroup = groups.find(g => g.id === s.groupId);
+    return `
     <div class="sheet-card ${s.status || ''}" id="card-${i}">
       <div class="sheet-card-header">
         <input class="sheet-name-input" value="${escHtml(s.name)}" onchange="renameSheet(${i}, this.value)" title="Click to rename" />
@@ -1136,11 +1314,15 @@ function renderSidebar() {
         <input class="col-input" type="text" maxlength="3" value="${escHtml(s.dateCol || 'A')}" onchange="updateCol(${i}, this.value)" />
         ${s.tab ? `<span class="col-label" style="margin-left:8px;">Tab: ${escHtml(s.tab)}</span>` : ''}
       </div>
+      <select class="group-assign-select" onchange="assignSheetToGroup(${i}, this.value)">
+        <option value="">— No group —</option>
+        ${groups.map(g => `<option value="${g.id}" ${s.groupId === g.id ? 'selected' : ''}>${escHtml(g.name)}</option>`).join('')}
+      </select>
       <div class="sheet-status ${s.status === 'success' ? 'ok' : s.status === 'error' ? 'err' : ''}" id="status-${i}">
         ${s.statusMsg || '—'}
       </div>
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
 }
 
 function escHtml(str) {
@@ -1157,6 +1339,79 @@ function shortUrl(url) {
 function renameSheet(i, name) {
   sheets[i].name = name;
   saveSheets();
+}
+
+function renameGroup(i, name) {
+  groups[i].name = name;
+  saveGroups();
+  renderSidebar();
+}
+
+function removeGroup(i) {
+  const gid = groups[i].id;
+  // Unassign any sheets in this group
+  sheets.forEach(s => { if (s.groupId === gid) delete s.groupId; });
+  groups.splice(i, 1);
+  saveGroups();
+  saveSheets();
+  renderSidebar();
+}
+
+function assignSheetToGroup(sheetIdx, groupId) {
+  if (groupId) {
+    sheets[sheetIdx].groupId = parseInt(groupId);
+  } else {
+    delete sheets[sheetIdx].groupId;
+  }
+  saveSheets();
+  renderSidebar();
+}
+
+// ─── GROUP MODAL ───────────────────────────────────────────
+function openGroupModal() {
+  document.getElementById('groupModalName').value = '';
+  document.getElementById('groupModalError').style.display = 'none';
+  // Render sheet checkboxes
+  const container = document.getElementById('groupSheetCheckboxes');
+  if (sheets.length === 0) {
+    container.innerHTML = '<span style="font-size:11px;color:var(--muted);">No sheets added yet. Add spreadsheets first.</span>';
+  } else {
+    container.innerHTML = sheets.map((s, i) => `
+      <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer;">
+        <input type="checkbox" data-sheet-idx="${i}" style="accent-color:var(--accent);width:14px;height:14px;" />
+        ${escHtml(s.name)}
+      </label>
+    `).join('');
+  }
+  document.getElementById('groupModalOverlay').classList.add('open');
+  setTimeout(() => document.getElementById('groupModalName').focus(), 100);
+}
+
+function closeGroupModal() {
+  document.getElementById('groupModalOverlay').classList.remove('open');
+}
+
+function saveGroup() {
+  const name = document.getElementById('groupModalName').value.trim();
+  if (!name) {
+    document.getElementById('groupModalError').textContent = 'Please enter a group name.';
+    document.getElementById('groupModalError').style.display = 'block';
+    return;
+  }
+  const group = { id: Date.now(), name };
+  groups.push(group);
+  saveGroups();
+  // Assign checked sheets to this group
+  const checkboxes = document.querySelectorAll('#groupSheetCheckboxes input[type="checkbox"]');
+  checkboxes.forEach(cb => {
+    if (cb.checked) {
+      const idx = parseInt(cb.dataset.sheetIdx);
+      sheets[idx].groupId = group.id;
+    }
+  });
+  saveSheets();
+  closeGroupModal();
+  renderSidebar();
 }
 
 function updateCol(i, col) {
@@ -1278,10 +1533,7 @@ async function refreshAll(skipCount) {
     try {
       const rows = await fetchSheetData(sheet);
       const colIdx = colLetterToIndex(sheet.dateCol || 'A');
-      console.log(`[LeadPulse] Sheet "${sheet.name}" — ${rows.length} rows, colIdx: ${colIdx}, dateCol: ${sheet.dateCol}`);
-      console.log('[LeadPulse] First data row:', rows[1]);
       const { count, daily } = countLeadsInRange(rows, colIdx, fromDate, toDate);
-      console.log(`[LeadPulse] Count result: ${count}`);
 
       sheet.status = 'success';
       sheet.statusMsg = `✓ ${count} leads in range`;
@@ -1313,6 +1565,28 @@ function showEmpty() {
     </div>`;
 }
 
+function renderGroupSummaries(results) {
+  if (groups.length === 0) return '';
+  const cards = groups.map(g => {
+    const memberResults = results.filter(r => {
+      const sheet = sheets.find(s => s.url === r.sheet.url);
+      return sheet && sheet.groupId === g.id;
+    });
+    const total = memberResults.reduce((s, r) => s + r.count, 0);
+    const memberNames = memberResults.map(r => r.sheet.name);
+    // Update sidebar group count
+    const countEl = document.getElementById(`group-count-${g.id}`);
+    if (countEl) countEl.textContent = `${total} lead${total !== 1 ? 's' : ''} in range`;
+    return `
+    <div class="group-summary-card">
+      <div class="group-summary-label">${escHtml(g.name)}</div>
+      <div class="group-summary-value">${total.toLocaleString()}</div>
+      <div class="group-summary-sub">${memberResults.length} sheet${memberResults.length !== 1 ? 's' : ''} · ${memberNames.length > 0 ? memberNames.join(', ') : 'No sheets assigned'}</div>
+    </div>`;
+  }).join('');
+  return `<div class="groups-row">${cards}</div>`;
+}
+
 function renderDashboard(results, fromDate, toDate) {
   if (!results.length) { showEmpty(); return; }
 
@@ -1332,6 +1606,9 @@ function renderDashboard(results, fromDate, toDate) {
 
   const content = document.getElementById('mainContent');
   content.innerHTML = `
+    <!-- GROUP SUMMARIES -->
+    ${renderGroupSummaries(results)}
+
     <!-- STATS -->
     <div class="stats-row">
       <div class="stat-card">
