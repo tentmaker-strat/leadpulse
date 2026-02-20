@@ -820,10 +820,14 @@ function updateGoogleAuthUI() {
     userInfo.textContent = user ? `● ${user}` : '● Connected';
     userInfo.style.color = 'var(--accent)';
   } else {
+    // If sheets exist but token is gone, show a more prominent reconnect prompt
     signInBtn.style.display = 'inline-block';
+    signInBtn.textContent = sheets.length > 0 ? '⚠ Reconnect Google Account' : '⟳ Connect Google Account';
+    signInBtn.style.borderColor = sheets.length > 0 ? 'var(--danger)' : 'var(--accent)';
+    signInBtn.style.color = sheets.length > 0 ? 'var(--danger)' : 'var(--accent)';
     signOutBtn.style.display = 'none';
-    userInfo.textContent = 'Not connected';
-    userInfo.style.color = 'var(--muted)';
+    userInfo.textContent = sheets.length > 0 ? 'Session expired' : 'Not connected';
+    userInfo.style.color = sheets.length > 0 ? 'var(--danger)' : 'var(--muted)';
   }
 }
 
@@ -1039,12 +1043,12 @@ async function fetchSheetData(sheet) {
   if (!match) throw new Error('Invalid Google Sheets URL');
   const sheetId = match[1];
 
-  // Build range — if tab specified use it, otherwise fetch all columns
-  const range = sheet.tab ? `${encodeURIComponent(sheet.tab)}!A:Z` : 'A:Z';
-  const apiUrl = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${range}`;
-
   const token = getAccessToken();
   if (!token) throw new Error('Not connected to Google. Click "Connect Google Account" in the header.');
+
+  // Build range — if tab specified use it, otherwise fetch all columns
+  const tabPart = sheet.tab ? encodeURIComponent(sheet.tab) + '!' : '';
+  const apiUrl = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${tabPart}A:Z`;
 
   const response = await fetch(apiUrl, {
     headers: { Authorization: `Bearer ${token}` }
@@ -1053,31 +1057,46 @@ async function fetchSheetData(sheet) {
   if (response.status === 401) {
     clearAccessToken();
     updateGoogleAuthUI();
-    throw new Error('Google session expired. Please reconnect your Google account.');
+    throw new Error('Google session expired. Click "Connect Google Account" to reconnect.');
   }
   if (response.status === 403) {
-    throw new Error('Access denied. Make sure this sheet is shared with your Google account or set to "Anyone with the link can view."');
+    throw new Error('Access denied. Make sure this sheet is shared with your Google account.');
   }
   if (response.status === 404) {
-    throw new Error('Sheet not found. Check the URL is correct.');
+    throw new Error('Sheet not found. Check the URL and tab name are correct.');
   }
   if (!response.ok) {
+    const errText = await response.text();
     throw new Error(`Google API error (HTTP ${response.status})`);
   }
 
   const json = await response.json();
   const values = json.values;
-  if (!values || values.length < 2) return [];
-  return values;
+  if (!values || values.length === 0) return [];
+
+  // Normalize rows — the API omits trailing empty cells so rows can have
+  // different lengths. Pad all rows to the same length as the header row.
+  const maxCols = values[0].length;
+  const normalized = values.map(row => {
+    const padded = [...row];
+    while (padded.length < maxCols) padded.push('');
+    return padded;
+  });
+
+  return normalized;
 }
 
 function countLeadsInRange(rows, colIndex, fromDate, toDate) {
   let count = 0;
   const daily = {};
+  // Row 0 is the header — start from row 1
   for (let i = 1; i < rows.length; i++) {
     const row = rows[i];
-    if (!row || !row[colIndex]) continue;
-    const d = parseDate(row[colIndex]);
+    if (!row) continue;
+    // If row is shorter than expected column index, skip
+    const cellValue = row[colIndex] !== undefined ? String(row[colIndex]).trim() : '';
+    if (!cellValue) continue;
+    const d = parseDate(cellValue);
     if (!d) continue;
     if (d >= fromDate && d <= toDate) {
       count++;
