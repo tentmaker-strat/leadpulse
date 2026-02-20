@@ -735,11 +735,10 @@
         <input type="date" id="dateTo">
       </div>
       <div class="quick-ranges" style="margin-top:10px;">
-        <button class="quick-btn" onclick="setRange(1)">1d</button>
-        <button class="quick-btn" onclick="setRange(7)">7d</button>
-        <button class="quick-btn active" onclick="setRange(30)">30d</button>
-        <button class="quick-btn" onclick="setRange(90)">90d</button>
+        <button class="quick-btn active" onclick="setRangeToday()">Today</button>
+        <button class="quick-btn" onclick="setRangeWTD()">WTD</button>
         <button class="quick-btn" onclick="setRangeMTD()">MTD</button>
+        <button class="quick-btn" onclick="setRange(90)">90d</button>
         <button class="quick-btn" onclick="setRangeYTD()">YTD</button>
       </div>
       <button class="btn btn-primary" style="width:100%;margin-top:12px;" onclick="refreshAll(false)">Apply & Refresh</button>
@@ -1081,30 +1080,60 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // ─── INIT ─────────────────────────────────────────────────
 (function init() {
-  setRange(30, false);
+  // Default to today
+  const today = todayStr();
+  document.getElementById('dateFrom').value = today;
+  document.getElementById('dateTo').value = today;
   updateLicenseBadge();
   updateGoogleAuthUI();
   renderSidebar();
-  // Only auto-refresh if already connected
   if (sheets.length > 0 && getAccessToken()) refreshAll(true);
 })();
 
 // ─── DATE HELPERS ─────────────────────────────────────────
 function todayStr() {
-  return new Date().toISOString().split('T')[0];
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
 
 function dateNDaysAgo(n) {
   const d = new Date();
   d.setDate(d.getDate() - n);
-  return d.toISOString().split('T')[0];
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+function getMondayOfWeek() {
+  const d = new Date();
+  const day = d.getDay(); // 0=Sun,1=Mon,...
+  const diff = day === 0 ? -6 : 1 - day; // go back to Monday
+  d.setDate(d.getDate() + diff);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+function setActiveBtn(el) {
+  document.querySelectorAll('.quick-btn').forEach(b => b.classList.remove('active'));
+  if (el) el.classList.add('active');
+}
+
+function setRangeToday(refresh=true) {
+  const today = todayStr();
+  document.getElementById('dateFrom').value = today;
+  document.getElementById('dateTo').value = today;
+  setActiveBtn(event && event.target);
+  if (refresh && sheets.length > 0) refreshAll(true);
 }
 
 function setRange(days, refresh=true) {
   document.getElementById('dateFrom').value = dateNDaysAgo(days);
   document.getElementById('dateTo').value = todayStr();
-  document.querySelectorAll('.quick-btn').forEach(b => b.classList.remove('active'));
-  event && event.target && event.target.classList.add('active');
+  setActiveBtn(event && event.target);
+  if (refresh && sheets.length > 0) refreshAll(true);
+}
+
+function setRangeWTD(refresh=true) {
+  document.getElementById('dateFrom').value = getMondayOfWeek();
+  document.getElementById('dateTo').value = todayStr();
+  setActiveBtn(event && event.target);
   if (refresh && sheets.length > 0) refreshAll(true);
 }
 
@@ -1112,7 +1141,7 @@ function setRangeMTD(refresh=true) {
   const now = new Date();
   document.getElementById('dateFrom').value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`;
   document.getElementById('dateTo').value = todayStr();
-  document.querySelectorAll('.quick-btn').forEach(b => b.classList.remove('active'));
+  setActiveBtn(event && event.target);
   if (refresh && sheets.length > 0) refreshAll(true);
 }
 
@@ -1120,7 +1149,7 @@ function setRangeYTD(refresh=true) {
   const now = new Date();
   document.getElementById('dateFrom').value = `${now.getFullYear()}-01-01`;
   document.getElementById('dateTo').value = todayStr();
-  document.querySelectorAll('.quick-btn').forEach(b => b.classList.remove('active'));
+  setActiveBtn(event && event.target);
   if (refresh && sheets.length > 0) refreshAll(true);
 }
 
@@ -1524,6 +1553,9 @@ async function refreshAll(skipCount) {
 
   document.getElementById('lastSynced').textContent = 'Loading…';
 
+  // Compute yesterday string for comparison
+  const yesterdayStr = dateNDaysAgo(1);
+
   const results = await Promise.all(sheets.map(async (sheet, i) => {
     const card = document.getElementById(`card-${i}`);
     const statusEl = document.getElementById(`status-${i}`);
@@ -1534,25 +1566,26 @@ async function refreshAll(skipCount) {
       const rows = await fetchSheetData(sheet);
       const colIdx = colLetterToIndex(sheet.dateCol || 'A');
       const { count, daily } = countLeadsInRange(rows, colIdx, fromDate, toDate);
+      const { count: yesterdayCount } = countLeadsInRange(rows, colIdx, yesterdayStr, yesterdayStr);
 
       sheet.status = 'success';
       sheet.statusMsg = `✓ ${count} leads in range`;
       saveSheets();
       if (card) card.className = 'sheet-card success';
       if (statusEl) { statusEl.className = 'sheet-status ok'; statusEl.textContent = sheet.statusMsg; }
-      return { sheet, count, daily, error: null };
+      return { sheet, count, daily, yesterdayCount, error: null };
     } catch (e) {
       sheet.status = 'error';
       sheet.statusMsg = '✕ ' + e.message;
       saveSheets();
       if (card) card.className = 'sheet-card error';
       if (statusEl) { statusEl.className = 'sheet-status err'; statusEl.textContent = sheet.statusMsg; }
-      return { sheet, count: 0, daily: {}, error: e.message };
+      return { sheet, count: 0, daily: {}, yesterdayCount: 0, error: e.message };
     }
   }));
 
   document.getElementById('lastSynced').textContent = `Last synced: ${new Date().toLocaleTimeString()}`;
-  renderDashboard(results, fromDate, toDate);
+  renderDashboard(results, fromDate, toDate, yesterdayStr);
 }
 
 // ─── DASHBOARD RENDER ──────────────────────────────────────
@@ -1587,10 +1620,11 @@ function renderGroupSummaries(results) {
   return `<div class="groups-row">${cards}</div>`;
 }
 
-function renderDashboard(results, fromDate, toDate) {
+function renderDashboard(results, fromDate, toDate, yesterdayStr) {
   if (!results.length) { showEmpty(); return; }
 
   const totalLeads = results.reduce((s, r) => s + r.count, 0);
+  const totalYesterday = results.reduce((s, r) => s + (r.yesterdayCount || 0), 0);
   const activeSheets = results.filter(r => !r.error).length;
   const errorSheets = results.filter(r => r.error).length;
   const topSheet = results.reduce((a, b) => a.count > b.count ? a : b, results[0]);
@@ -1598,7 +1632,15 @@ function renderDashboard(results, fromDate, toDate) {
   const allDates = new Set();
   results.forEach(r => Object.keys(r.daily || {}).forEach(d => allDates.add(d)));
   const sortedDates = Array.from(allDates).sort();
-  const dailyTotals = sortedDates.map(d => results.reduce((s, r) => s + (r.daily[d] || 0), 0));
+
+  // Build full Mon-Sun week for chart (always show current week)
+  const monday = getMondayOfWeek();
+  const weekDates = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(monday + 'T00:00:00');
+    d.setDate(d.getDate() + i);
+    weekDates.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`);
+  }
 
   const msPerDay = 86400000;
   const days = fromDate && toDate ? Math.round((new Date(toDate) - new Date(fromDate)) / msPerDay) + 1 : '—';
@@ -1615,6 +1657,7 @@ function renderDashboard(results, fromDate, toDate) {
         <div class="stat-label">Total Leads</div>
         <div class="stat-value">${totalLeads.toLocaleString()}</div>
         <div class="stat-sub">${fromDate} → ${toDate}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px;">${totalYesterday} yesterday</div>
       </div>
       <div class="stat-card">
         <div class="stat-label">Avg / Day</div>
@@ -1639,6 +1682,7 @@ function renderDashboard(results, fromDate, toDate) {
         <div class="chart-title">Daily Leads</div>
         <span style="font-size:11px;color:var(--muted);">${sortedDates.length} days with submissions</span>
       </div>
+      <div style="font-size:10px;color:var(--muted);margin-top:-12px;margin-bottom:16px;">Current week (Mon–Sun)</div>
       <div class="chart-wrap">
         <canvas id="leadsChart"></canvas>
       </div>
@@ -1691,10 +1735,17 @@ function renderDashboard(results, fromDate, toDate) {
   const ctx = document.getElementById('leadsChart');
   if (chartInstance) chartInstance.destroy();
 
+  const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const todayFull = todayStr();
+
   const datasets = results.map((r, i) => ({
     label: r.sheet.name,
-    data: sortedDates.map(d => r.daily[d] || 0),
-    backgroundColor: COLORS[i % COLORS.length] + 'cc',
+    data: weekDates.map(d => r.daily[d] || 0),
+    backgroundColor: weekDates.map(d =>
+      d > todayFull
+        ? COLORS[i % COLORS.length] + '22'  // future days: very faint
+        : COLORS[i % COLORS.length] + 'cc'
+    ),
     borderColor: COLORS[i % COLORS.length],
     borderWidth: 1.5,
     borderRadius: 3,
@@ -1703,13 +1754,15 @@ function renderDashboard(results, fromDate, toDate) {
   chartInstance = new Chart(ctx, {
     type: 'bar',
     data: {
-      labels: sortedDates.map(d => {
-        const date = new Date(d + 'T00:00:00');
-        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      labels: weekDates.map((d, i) => {
+        const label = dayNames[i];
+        return d === todayFull ? label + ' ●' : label;
       }),
       datasets: datasets.length === 1 ? [{
         ...datasets[0],
-        backgroundColor: COLORS[0] + '99',
+        backgroundColor: weekDates.map(d =>
+          d > todayFull ? COLORS[0] + '22' : COLORS[0] + '99'
+        ),
       }] : datasets
     },
     options: {
