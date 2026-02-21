@@ -582,6 +582,135 @@
 
   .tip strong { color: var(--accent); }
 
+  /* UNASSIGNED SHEET HIGHLIGHT */
+  .sheet-card.unassigned {
+    border-color: rgba(251,146,60,0.4);
+    background: rgba(251,146,60,0.03);
+  }
+  .unassigned-badge {
+    font-size: 9px;
+    color: #fb923c;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    margin-top: 4px;
+    display: block;
+  }
+
+  /* EXPANDABLE GROUP CARDS */
+  .group-expand-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    transition: border-color 0.15s;
+  }
+  .group-expand-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 24px;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.1s;
+  }
+  .group-expand-header:hover { background: var(--surface2); }
+  .group-expand-left { display: flex; flex-direction: column; gap: 4px; }
+  .group-expand-name {
+    font-family: 'Syne', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .group-expand-meta { font-size: 11px; color: var(--muted); }
+  .group-expand-right { display: flex; align-items: center; gap: 16px; }
+  .group-expand-count {
+    font-family: 'Syne', sans-serif;
+    font-size: 32px;
+    font-weight: 800;
+    color: var(--text);
+    letter-spacing: -1px;
+  }
+  .group-expand-arrow {
+    font-size: 14px;
+    color: var(--muted);
+    transition: transform 0.2s;
+  }
+  .group-expand-arrow.open { transform: rotate(180deg); }
+  .group-expand-body {
+    display: none;
+    border-top: 1px solid var(--border);
+    padding: 12px 24px 16px;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .group-expand-body.open { display: flex; }
+  .group-sheet-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .group-sheet-row-name {
+    font-size: 12px;
+    color: var(--text);
+    width: 160px;
+    flex-shrink: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .group-sheet-row-bar-wrap {
+    flex: 1;
+    height: 4px;
+    background: var(--surface2);
+    border-radius: 2px;
+  }
+  .group-sheet-row-bar {
+    height: 4px;
+    border-radius: 2px;
+    transition: width 0.4s ease;
+  }
+  .group-sheet-row-count {
+    font-family: 'Syne', sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    width: 40px;
+    text-align: right;
+    flex-shrink: 0;
+  }
+  .group-sheet-row-pct {
+    font-size: 10px;
+    color: var(--muted);
+    width: 32px;
+    text-align: right;
+    flex-shrink: 0;
+  }
+
+  /* CHART TOGGLE */
+  .chart-toggle {
+    display: flex;
+    gap: 0;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    overflow: hidden;
+  }
+  .chart-toggle-btn {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    padding: 4px 12px;
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.12s;
+    letter-spacing: 0.3px;
+  }
+  .chart-toggle-btn:first-child { border-right: 1px solid var(--border); }
+  .chart-toggle-btn.active {
+    background: var(--surface2);
+    color: var(--text);
+  }
+  .chart-toggle-btn:hover:not(.active) { color: var(--accent); }
+
   /* GROUPS */
   .group-card {
     background: var(--surface2);
@@ -983,6 +1112,8 @@ function updateGoogleAuthUI() {
 let sheets = JSON.parse(localStorage.getItem('lp_sheets') || '[]');
 let groups = JSON.parse(localStorage.getItem('lp_groups') || '[]');
 let chartInstance = null;
+let chartViewMode = 'sheet'; // 'sheet' or 'group'
+let lastRenderArgs = null; // cache for re-rendering chart on toggle
 const COLORS = ['#6ee7b7','#818cf8','#fb923c','#f472b6','#38bdf8','#facc15','#a78bfa','#34d399'];
 
 const FREE_LIMIT = 10;
@@ -1330,9 +1461,10 @@ function renderSidebar() {
     return;
   }
   list.innerHTML = sheets.map((s, i) => {
-    const assignedGroup = groups.find(g => g.id === s.groupId);
+    const isUnassigned = !s.groupId || !groups.find(g => g.id === s.groupId);
+    const cardClass = [s.status || '', isUnassigned ? 'unassigned' : ''].filter(Boolean).join(' ');
     return `
-    <div class="sheet-card ${s.status || ''}" id="card-${i}">
+    <div class="sheet-card ${cardClass}" id="card-${i}">
       <div class="sheet-card-header">
         <input class="sheet-name-input" value="${escHtml(s.name)}" onchange="renameSheet(${i}, this.value)" title="Click to rename" />
         <button class="btn-danger btn" onclick="removeSheet(${i})">✕</button>
@@ -1347,6 +1479,7 @@ function renderSidebar() {
         <option value="">— No group —</option>
         ${groups.map(g => `<option value="${g.id}" ${s.groupId === g.id ? 'selected' : ''}>${escHtml(g.name)}</option>`).join('')}
       </select>
+      ${isUnassigned ? `<span class="unassigned-badge">⚠ unassigned</span>` : ''}
       <div class="sheet-status ${s.status === 'success' ? 'ok' : s.status === 'error' ? 'err' : ''}" id="status-${i}">
         ${s.statusMsg || '—'}
       </div>
@@ -1598,26 +1731,183 @@ function showEmpty() {
     </div>`;
 }
 
+function toggleGroupExpand(id) {
+  const body = document.getElementById(`gebody-${id}`);
+  const arrow = document.getElementById(`gearrow-${id}`);
+  if (!body) return;
+  const isOpen = body.classList.toggle('open');
+  arrow.classList.toggle('open', isOpen);
+}
+
+function setChartView(mode, btn) {
+  chartViewMode = mode;
+  document.querySelectorAll('.chart-toggle-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  if (lastRenderArgs) renderChart(...lastRenderArgs);
+}
+
+function renderChart(results, weekDates, dayNames, todayFull) {
+  lastRenderArgs = [results, weekDates, dayNames, todayFull];
+  const ctx = document.getElementById('leadsChart');
+  if (!ctx) return;
+  if (chartInstance) chartInstance.destroy();
+
+  let datasets;
+  if (chartViewMode === 'group' && groups.length > 0) {
+    // Build group + unassigned datasets
+    const allGroups = [...groups.map(g => ({
+      id: g.id, name: g.name,
+      sheetIds: sheets.filter(s => s.groupId === g.id).map(s => s.url)
+    }))];
+    const unassignedSheetUrls = sheets.filter(s => !s.groupId || !groups.find(g => g.id === s.groupId)).map(s => s.url);
+    if (unassignedSheetUrls.length > 0) {
+      allGroups.push({ id: 'unassigned', name: 'Unassigned', sheetIds: unassignedSheetUrls });
+    }
+    datasets = allGroups.map((g, gi) => {
+      const color = g.id === 'unassigned' ? '#fb923c' : COLORS[gi % COLORS.length];
+      const groupResults = results.filter(r => g.sheetIds.includes(r.sheet.url));
+      return {
+        label: g.name,
+        data: weekDates.map(d => groupResults.reduce((s, r) => s + (r.daily[d] || 0), 0)),
+        backgroundColor: weekDates.map(d => d > todayFull ? color + '22' : color + 'cc'),
+        borderColor: color,
+        borderWidth: 1.5,
+        borderRadius: 3,
+      };
+    });
+  } else {
+    // By sheet (default)
+    datasets = results.map((r, i) => ({
+      label: r.sheet.name,
+      data: weekDates.map(d => r.daily[d] || 0),
+      backgroundColor: weekDates.map(d => d > todayFull ? COLORS[i % COLORS.length] + '22' : COLORS[i % COLORS.length] + 'cc'),
+      borderColor: COLORS[i % COLORS.length],
+      borderWidth: 1.5,
+      borderRadius: 3,
+    }));
+  }
+
+  const showLegend = datasets.length > 1;
+  chartInstance = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: weekDates.map((d, i) => d === todayFull ? dayNames[i] + ' ●' : dayNames[i]),
+      datasets: datasets.length === 1 ? [{
+        ...datasets[0],
+        backgroundColor: weekDates.map(d => d > todayFull ? COLORS[0] + '22' : COLORS[0] + '99'),
+      }] : datasets
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          display: showLegend,
+          labels: { color: '#94a3b8', font: { family: 'DM Mono', size: 11 }, boxWidth: 10, boxHeight: 10, padding: 16 }
+        },
+        tooltip: {
+          backgroundColor: '#1a1a26',
+          borderColor: '#252535',
+          borderWidth: 1,
+          titleColor: '#e2e8f0',
+          bodyColor: '#94a3b8',
+          titleFont: { family: 'Syne', size: 13 },
+          bodyFont: { family: 'DM Mono', size: 11 },
+          callbacks: {
+            footer: (items) => {
+              if (datasets.length > 1) {
+                const total = items.reduce((s, i) => s + i.parsed.y, 0);
+                return total > 0 ? `Total: ${total}` : null;
+              }
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          stacked: datasets.length > 1,
+          grid: { color: '#1a1a26' },
+          ticks: { color: '#475569', font: { family: 'DM Mono', size: 10 }, maxRotation: 0 }
+        },
+        y: {
+          stacked: datasets.length > 1,
+          grid: { color: '#1a1a26' },
+          ticks: { color: '#475569', font: { family: 'DM Mono', size: 10 } },
+          beginAtZero: true,
+        }
+      }
+    }
+  });
+}
+
 function renderGroupSummaries(results) {
-  if (groups.length === 0) return '';
-  const cards = groups.map(g => {
+  // Build unassigned results
+  const unassignedResults = results.filter(r => {
+    const sheet = sheets.find(s => s.url === r.sheet.url);
+    return !sheet || !sheet.groupId || !groups.find(g => g.id === sheet.groupId);
+  });
+  const unassignedTotal = unassignedResults.reduce((s, r) => s + r.count, 0);
+
+  const allGroupResults = [...groups.map(g => {
     const memberResults = results.filter(r => {
       const sheet = sheets.find(s => s.url === r.sheet.url);
       return sheet && sheet.groupId === g.id;
     });
     const total = memberResults.reduce((s, r) => s + r.count, 0);
-    const memberNames = memberResults.map(r => r.sheet.name);
     // Update sidebar group count
     const countEl = document.getElementById(`group-count-${g.id}`);
     if (countEl) countEl.textContent = `${total} lead${total !== 1 ? 's' : ''} in range`;
+    return { g, memberResults, total };
+  }), ...(unassignedResults.length > 0 ? [{
+    g: { id: 'unassigned', name: 'Unassigned' },
+    memberResults: unassignedResults,
+    total: unassignedTotal
+  }] : [])];
+
+  if (allGroupResults.length === 0) return '';
+
+  const cards = allGroupResults.map(({ g, memberResults, total }, gi) => {
+    const color = g.id === 'unassigned' ? '#fb923c' : COLORS[gi % COLORS.length];
+    const sheetRows = memberResults.map((r, ri) => {
+      const pct = total > 0 ? Math.round((r.count / total) * 100) : 0;
+      const rowColor = COLORS[(gi + ri + 1) % COLORS.length];
+      return `
+      <div class="group-sheet-row">
+        <span class="group-sheet-row-name">
+          <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${rowColor};margin-right:7px;flex-shrink:0;"></span>
+          ${escHtml(r.sheet.name)}
+        </span>
+        <div class="group-sheet-row-bar-wrap">
+          <div class="group-sheet-row-bar" style="width:${pct}%;background:${rowColor};"></div>
+        </div>
+        <span class="group-sheet-row-count" style="color:${rowColor}">${r.count.toLocaleString()}</span>
+        <span class="group-sheet-row-pct">${pct}%</span>
+      </div>`;
+    }).join('');
+
     return `
-    <div class="group-summary-card">
-      <div class="group-summary-label">${escHtml(g.name)}</div>
-      <div class="group-summary-value">${total.toLocaleString()}</div>
-      <div class="group-summary-sub">${memberResults.length} sheet${memberResults.length !== 1 ? 's' : ''} · ${memberNames.length > 0 ? memberNames.join(', ') : 'No sheets assigned'}</div>
+    <div class="group-expand-card" style="border-top: 2px solid ${color};">
+      <div class="group-expand-header" onclick="toggleGroupExpand('${g.id}')">
+        <div class="group-expand-left">
+          <div class="group-expand-name">${escHtml(g.name)}</div>
+          <div class="group-expand-meta">${memberResults.length} sheet${memberResults.length !== 1 ? 's' : ''}</div>
+        </div>
+        <div class="group-expand-right">
+          <div class="group-expand-count">${total.toLocaleString()}</div>
+          <div class="group-expand-arrow" id="gearrow-${g.id}">▼</div>
+        </div>
+      </div>
+      <div class="group-expand-body" id="gebody-${g.id}">
+        ${sheetRows.length > 0 ? sheetRows : '<span style="font-size:11px;color:var(--muted);">No sheets assigned</span>'}
+      </div>
     </div>`;
   }).join('');
-  return `<div class="groups-row">${cards}</div>`;
+
+  return `
+  <div style="margin-bottom:4px;">
+    <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:12px;">Groups</div>
+    <div style="display:flex;flex-direction:column;gap:10px;">${cards}</div>
+  </div>`;
 }
 
 function renderDashboard(results, fromDate, toDate, yesterdayStr) {
@@ -1679,10 +1969,13 @@ function renderDashboard(results, fromDate, toDate, yesterdayStr) {
     <!-- CHART -->
     <div class="chart-card">
       <div class="chart-header">
-        <div class="chart-title">Daily Leads</div>
-        <span style="font-size:11px;color:var(--muted);">${sortedDates.length} days with submissions</span>
+        <div class="chart-title">Daily Leads <span style="font-size:10px;color:var(--muted);font-family:'DM Mono',monospace;font-weight:400;letter-spacing:0;">— current week</span></div>
+        ${groups.length > 0 ? `
+        <div class="chart-toggle">
+          <button class="chart-toggle-btn ${chartViewMode === 'sheet' ? 'active' : ''}" onclick="setChartView('sheet', this)">By Sheet</button>
+          <button class="chart-toggle-btn ${chartViewMode === 'group' ? 'active' : ''}" onclick="setChartView('group', this)">By Group</button>
+        </div>` : ''}
       </div>
-      <div style="font-size:10px;color:var(--muted);margin-top:-12px;margin-bottom:16px;">Current week (Mon–Sun)</div>
       <div class="chart-wrap">
         <canvas id="leadsChart"></canvas>
       </div>
@@ -1732,85 +2025,9 @@ function renderDashboard(results, fromDate, toDate, yesterdayStr) {
     </div>` : ''}
   `;
 
-  const ctx = document.getElementById('leadsChart');
-  if (chartInstance) chartInstance.destroy();
-
   const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
   const todayFull = todayStr();
-
-  const datasets = results.map((r, i) => ({
-    label: r.sheet.name,
-    data: weekDates.map(d => r.daily[d] || 0),
-    backgroundColor: weekDates.map(d =>
-      d > todayFull
-        ? COLORS[i % COLORS.length] + '22'  // future days: very faint
-        : COLORS[i % COLORS.length] + 'cc'
-    ),
-    borderColor: COLORS[i % COLORS.length],
-    borderWidth: 1.5,
-    borderRadius: 3,
-  }));
-
-  chartInstance = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels: weekDates.map((d, i) => {
-        const label = dayNames[i];
-        return d === todayFull ? label + ' ●' : label;
-      }),
-      datasets: datasets.length === 1 ? [{
-        ...datasets[0],
-        backgroundColor: weekDates.map(d =>
-          d > todayFull ? COLORS[0] + '22' : COLORS[0] + '99'
-        ),
-      }] : datasets
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: {
-          display: results.length > 1,
-          labels: {
-            color: '#94a3b8',
-            font: { family: 'DM Mono', size: 11 },
-            boxWidth: 10, boxHeight: 10,
-            padding: 16,
-          }
-        },
-        tooltip: {
-          backgroundColor: '#1a1a26',
-          borderColor: '#252535',
-          borderWidth: 1,
-          titleColor: '#e2e8f0',
-          bodyColor: '#94a3b8',
-          titleFont: { family: 'Syne', size: 13 },
-          bodyFont: { family: 'DM Mono', size: 11 },
-          callbacks: {
-            footer: (items) => {
-              if (results.length > 1) {
-                const total = items.reduce((s, i) => s + i.parsed.y, 0);
-                return `Total: ${total}`;
-              }
-            }
-          }
-        }
-      },
-      scales: {
-        x: {
-          stacked: results.length > 1,
-          grid: { color: '#1a1a26' },
-          ticks: { color: '#475569', font: { family: 'DM Mono', size: 10 }, maxRotation: 45 }
-        },
-        y: {
-          stacked: results.length > 1,
-          grid: { color: '#1a1a26' },
-          ticks: { color: '#475569', font: { family: 'DM Mono', size: 10 } },
-          beginAtZero: true,
-        }
-      }
-    }
-  });
+  renderChart(results, weekDates, dayNames, todayFull);
 }
 </script>
 </body>
